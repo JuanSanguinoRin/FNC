@@ -1,6 +1,8 @@
 package programatc;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 
 public class test{
     public static void main(String[] args) {
@@ -10,7 +12,12 @@ public class test{
             System.out.println(a);
         }
         m.imprimirMatrix();
-        System.out.println(Arrays.toString(m.getInalcanzables()));
-        System.out.println(Arrays.toString(m.getInutiles()));
+        //System.out.println(Arrays.toString(m.getInalcanzables()));
+        //System.out.println(Arrays.toString(m.getInutiles()));
+        HashMap<String, ArrayList<String>> prodMap = m.getMapaInicial();
+        System.out.println("Elementos del HashMap:-------------------------");
+        for (HashMap.Entry<String, ArrayList<String>> mapa : prodMap.entrySet()) {
+            System.out.println("Clave: " + mapa.getKey() + ", Valor: " + mapa.getValue());
+        }
     }
 }

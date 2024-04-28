@@ -1,6 +1,8 @@
 package programatc;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.Random;
 
 public class Modelo {
@@ -11,6 +13,8 @@ public class Modelo {
     private String terminales;
     private String input;
     private String reglaInicial;
+    //primer mapa de la matrix, sin usar metodos aun
+    private HashMap<String, ArrayList<String>> mapainicial;
 
     public Modelo() {
 
@@ -38,6 +42,7 @@ public class Modelo {
             String[] palabravec = produccionFilaAzar(matrix, reglaInicial).split("");
             palabras[i] = palabraFinal(palabravec, noterminalesvec, matrix, control);
         }
+        mapainicial = convertirAHashMap(matrix);
         return palabras;
     }
 
@@ -330,5 +335,31 @@ public class Modelo {
 
     public void setInutiles(String[] inutiles) {
         this.inutiles = inutiles;
+    }
+    // De aqui en adelante se empezara a usar Hashmap como estructura de datos principal
+    public HashMap<String, ArrayList<String>> convertirAHashMap(String[][] matriz) {
+        HashMap<String, ArrayList<String>> hashMap = new HashMap<>();
+
+        for (String[] fila : matriz) {
+            if (fila[0] != null) {
+                ArrayList<String> valores = new ArrayList<>();
+                for (int i = 1; i < fila.length; i++) {
+                    if (fila[i] != null) {
+                        valores.add(fila[i]);
+                    }
+                }
+                hashMap.put(fila[0], valores);
+            }
+        }
+        //mapainicial=hashMap;
+        return hashMap;
+    }
+
+    public HashMap<String, ArrayList<String>> getMapaInicial() {
+        return mapainicial;
+    }
+
+    public void setMapaInicial( HashMap<String, ArrayList<String>> mapainicial) {
+        this.mapainicial = mapainicial;
     }
 }
