@@ -12,8 +12,8 @@ public class test{
             System.out.println(a);
         }
         m.imprimirMatrix();
-        System.out.println(Arrays.toString(m.getInalcanzables()));
-        System.out.println(Arrays.toString(m.getInutiles()));
+        System.out.println("Inalcanzables: " + Arrays.toString(m.getInalcanzables()));
+        System.out.println("Inutiles: " + Arrays.toString(m.getInutiles()));
         HashMap<String, ArrayList<String>> prodMap = m.getMapaInicial();
         
         System.out.println("Elementos del HashMap:-------------------------");
@@ -22,16 +22,22 @@ public class test{
             System.out.println("Clave: " + mapa.getKey() + ", Valor: " + mapa.getValue());
         }
         m.depurarFinalmente(); // llamar a este metodo para que cargue los metodos de depuracion y chomsky
-        HashMap<String, ArrayList<String>> mapad = m.getMapaDepurado();
+        HashMap<String, ArrayList<String>> mapad = m.getMapaDepurado(); // mapa depurado
         System.out.println("Mapa depurado:-------------------------");
         for (HashMap.Entry<String, ArrayList<String>> mapa : mapad.entrySet()) {
             System.out.println("Clave: " + mapa.getKey() + ", Valor: " + mapa.getValue());
         }
-
-        System.out.println("Mapa Chomsky:-------------------------");
-        HashMap<String, ArrayList<String>> mapaC = m.getMapaChomsky();
-        for (HashMap.Entry<String, ArrayList<String>> mapa : mapaC.entrySet()) {
+        // este de chomsky con terminales no se debe llamar en la interfaz
+        /*System.out.println("Chomskya con terminales:-------------------------");
+        HashMap<String, ArrayList<String>> mapaf = m.mapaChomskyConterminales; // mapa con chomsky y sin terminales
+        for (HashMap.Entry<String, ArrayList<String>> mapa : mapaf.entrySet()) {
             System.out.println("Clave: " + mapa.getKey() + ", Valor: " + mapa.getValue());
+        }*/
+        System.out.println("Mapa Chomsky:-------------------------");
+        HashMap<String, ArrayList<String>> mapaC = m.getMapaChomsky(); // mapa con chomsky y sin terminales
+        for (HashMap.Entry<String, ArrayList<String>> mapa : mapaC.entrySet()) {
+            //preferiblemente mostrar en la interfaz con este formato:
+            System.out.println(mapa.getKey() + " -> " + mapa.getValue());
         }
         
     }

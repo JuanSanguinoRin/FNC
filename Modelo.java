@@ -24,7 +24,7 @@ public class Modelo {
     private HashMap<String, ArrayList<String>> mapaDepurado;
     //segundo mapa a mostrar en la interfaz
     private HashMap<String, ArrayList<String>> mapaChomsky;
-    private HashMap<String, ArrayList<String>> mapaChomskyConterminales;
+    public HashMap<String, ArrayList<String>> mapaChomskyConterminales;
     //mapa que va a contener a las nuevas Qs que se vallan creando, este se une con el mapa chomsky
     private HashMap<String, String> mapaQs = new HashMap<>();
     public Modelo() {
@@ -594,7 +594,6 @@ public class Modelo {
     public HashMap<String, ArrayList<String>> chomskyEnDuos(HashMap<String, ArrayList<String>> producciones) {
         
         HashMap<String,  ArrayList<String>> mapaCompletamenteEnChusmky = new HashMap<>();
-        int contadorDeQ = 1;
         for (String noTerminal : producciones.keySet()){
             ArrayList<String> produccionActual = producciones.get(noTerminal);
             ArrayList<String> nuevaProduccion = new ArrayList<>();
@@ -602,7 +601,7 @@ public class Modelo {
             for (String cadena : produccionActual){
                 
                 if(cadena.length() > 2){
-                    String variableEnChumsky = produccionChumsky(cadena, contadorDeQ);
+                    String variableEnChumsky = produccionChumsky(cadena);
                     nuevaProduccion.add(variableEnChumsky);
                 }else{
                     nuevaProduccion.add(cadena);
@@ -621,7 +620,8 @@ public class Modelo {
         return mapaCompletamenteEnChusmky;
     }
     //metodo que convierte cada produccion en forma de chomsky y va creando Qs y verificando si existe
-    public String produccionChumsky(String produccion, int contadorGlobal){
+    int contadorGlobal = 1;
+    public String produccionChumsky(String produccion){
         if(produccion.charAt(1) == '<'){
             return produccion;
         } else{
@@ -636,12 +636,13 @@ public class Modelo {
                 }else{
                     produccionConQ = produccion.substring(0, produccion.length() - 2) + mapaQs.get(llaveQ);
                 }
-                return produccionChumsky(produccionConQ, contadorGlobal);
+                return produccionChumsky(produccionConQ);
             }//otra vez, pero ahora produccion va a tener > al final //Ya no entiendo una mondá
              else { 
-                if(produccion.charAt(produccion.length() - 3) == 'Q'){
+                if(contadorGlobal < 10 || produccion.charAt(produccion.length() - 3) == 'Q'){
 
                     String llaveQ = produccion.substring(produccion.length()-5);
+
                     String produccionConQ;
                     if(!mapaQs.containsKey(llaveQ)){
                         String nuevaVariable = "<Q" + contadorGlobal++ + ">";
@@ -650,9 +651,10 @@ public class Modelo {
                     }else{
                         produccionConQ = produccion.substring(0, produccion.length() - 5) + mapaQs.get(llaveQ);
                     }
-                    return produccionChumsky(produccionConQ, contadorGlobal);
+                    return produccionChumsky(produccionConQ);
                 } else {
                     String llaveQ = produccion.substring(produccion.length()-6);
+
                     String produccionConQ;
                     if(!mapaQs.containsKey(llaveQ)){
                         String nuevaVariable = "<Q" + contadorGlobal++ + ">";
@@ -661,7 +663,7 @@ public class Modelo {
                     }else{
                         produccionConQ = produccion.substring(0, produccion.length() - 6) + mapaQs.get(llaveQ);
                     }
-                    return produccionChumsky(produccionConQ, contadorGlobal);
+                    return produccionChumsky(produccionConQ);
                 }
             }
         }
