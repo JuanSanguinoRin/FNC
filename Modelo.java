@@ -3,7 +3,9 @@ package programatc;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Random;
+import java.util.Iterator;
 
 public class Modelo {
     private String[][] matrix;
@@ -13,11 +15,23 @@ public class Modelo {
     private String terminales;
     private String input;
     private String reglaInicial;
+    private String[] terminalesvec;
+    private String[] noterminalesvec;
     //primer mapa de la matrix, sin usar metodos aun
+    // este no se usa para la interfaz, es un intermedio
     private HashMap<String, ArrayList<String>> mapainicial;
-
+    //primer mapa que se va a mostrar en la interfaz, ya tiene su get y set
+    private HashMap<String, ArrayList<String>> mapaDepurado;
+    //segundo mapa a mostrar en la interfaz
+    private HashMap<String, ArrayList<String>> mapaChomsky;
+    private HashMap<String, ArrayList<String>> mapaChomskyConterminales;
+    //mapa que va a contener a las nuevas Qs que se vallan creando, este se une con el mapa chomsky
+    private HashMap<String, String> mapaQs = new HashMap<>();
     public Modelo() {
-
+		
+    }
+    public String[] getTerminalesVec(){
+        return terminalesvec;
     }
 
     public Modelo(String noterminales, String terminales, String input, String reglaInicial) {
@@ -30,13 +44,20 @@ public class Modelo {
     // Metodo principal al que se debe llamar para que se generen las palabras
     public String[] generarPalabras() {
         matrix = generarMatrix(input);
-        String[] terminalesvec = terminales.split(",");
-        String[] noterminalesvec = noterminales.split(",");
+        terminalesvec = terminales.split(",");
+        terminalesvec = agregarLambda(terminalesvec, "?");
+        noterminalesvec = noterminales.split(",");
         inalcanzables = depurarMatriz(terminalesvec, noterminalesvec);
+        
         String[] inutilesNoTerminales = depurarNoTerminales(noterminalesvec, matrix);
+		
         String[] inutilesTerminales = depurarTerminales(terminalesvec, matrix);
+        terminalesvec = eliminarUltimoElemento(terminalesvec);
         inutiles = combinarArrays(inutilesNoTerminales, inutilesTerminales);
         String[] palabras = new String[10];
+        for (String a:terminalesvec){
+            System.out.println(a);
+        }
         int control = 0;
         for (int i = 0; i < 10; i++) {
             String[] palabravec = produccionFilaAzar(matrix, reglaInicial).split("");
@@ -44,6 +65,34 @@ public class Modelo {
         }
         mapainicial = convertirAHashMap(matrix);
         return palabras;
+    }
+
+    //añadir lambda como ? al final para que no las elimine
+    public String[] agregarLambda(String[] miVector, String nuevoElemento){
+        // Crear un nuevo vector con una longitud mayor
+        String[] nuevoVector = new String[miVector.length + 1];
+        
+        // Copiar los elementos del vector original al nuevo vector
+        System.arraycopy(miVector, 0, nuevoVector, 0, miVector.length);
+        nuevoVector[nuevoVector.length - 1] = nuevoElemento;
+        return nuevoVector;
+    }
+
+    //quitar lambda del ultimo elemento del vector de terminales
+    public String[] eliminarUltimoElemento(String[] vector) {
+        // Verificar si el vector tiene elementos
+        if (vector == null || vector.length == 0) {
+            return vector;
+        }
+        
+        // Crear un nuevo vector con una longitud menor
+        String[] nuevoVector = new String[vector.length - 1];
+        
+        // Copiar todos los elementos excepto el último
+        for (int i = 0; i < nuevoVector.length; i++) {
+            nuevoVector[i] = vector[i];
+        }
+        return nuevoVector;
     }
 
     // este metodo toma la entrada y la convierte en una matrix
@@ -174,28 +223,25 @@ public class Modelo {
     public String[] depurarNoTerminales(String[] vector, String[][] matriz) {
         int tamanoListaResultados = 0;
         int fila = 0;
-
         for (String letra : vector) {
-            if (fila < matriz.length && letra.equals(matriz[fila][0])) {
+            if (fila < matriz.length && letra.equals(matriz[fila][0]) && !matriz[fila][0].contains("?")) {
                 fila++;
             } else {
                 tamanoListaResultados++;
             }
         }
-
+    
         String[] listaResultados = new String[tamanoListaResultados];
         int indiceListaResultados = 0;
         fila = 0;
-
         for (String letra : vector) {
-            if (fila < matriz.length && letra.equals(matriz[fila][0])) {
+            if (fila < matriz.length && letra.equals(matriz[fila][0]) && !matriz[fila][0].contains("?")) {
                 fila++;
             } else {
                 listaResultados[indiceListaResultados] = letra;
                 indiceListaResultados++;
             }
         }
-
         return listaResultados;
     }
 
@@ -336,7 +382,20 @@ public class Modelo {
     public void setInutiles(String[] inutiles) {
         this.inutiles = inutiles;
     }
+    
+    // --------------------------------------------------------------
     // De aqui en adelante se empezara a usar Hashmap como estructura de datos principal
+    
+	//llamar a este metodo en la vista para que se cargue la depuracion y chomsky
+	public void depurarFinalmente(){
+        ArrayList<String> varNT = new ArrayList<>(Arrays.asList(noterminalesvec));
+        ArrayList<String> varT = new ArrayList<>(Arrays.asList(terminalesvec));
+        mapaDepurado = depuracionTotal(convertirAHashMap(matrix), varNT, varT, reglaInicial);
+        // en este momento tecnicamente esta en chomsky, pero falta convertir terminales
+        mapaChomskyConterminales = chomskyEnDuos(mapaDepurado);
+        mapaChomsky = reemplazarTerminales(mapaChomskyConterminales, varT);
+    }
+
     public HashMap<String, ArrayList<String>> convertirAHashMap(String[][] matriz) {
         HashMap<String, ArrayList<String>> hashMap = new HashMap<>();
 
@@ -352,7 +411,323 @@ public class Modelo {
             }
         }
         //mapainicial=hashMap;
+        //depuracionTotal(hashMap, null, null, reglaInicial);
         return hashMap;
+        
+    }
+    //llamar al metodo de arriba y pasarselo a este 
+    public HashMap<String, ArrayList<String>> depuracionTotal(HashMap<String, ArrayList<String>> mapa,
+            ArrayList<String> varNT,
+            ArrayList<String> varT, String keyInicial) {
+
+        HashMap<String, ArrayList<String>> mapaDepuradoSimple = new HashMap<>();
+        mapa = eliminarRecursividad(mapa);
+        mapaDepuradoSimple = mapa;
+        int contadorEpsilon = 0;
+        int contadorUnitarias = 0;
+
+        for (String llave : mapaDepuradoSimple.keySet()) {
+            ArrayList<String> produccion = mapaDepuradoSimple.get(llave);
+            for (String cadena : produccion) {
+                if (cadena.equals("?")) {
+                    contadorEpsilon++;
+                }
+                if (cadena.length() == 1) {
+                    contadorUnitarias++;
+                }
+            }
+        }
+        if (contadorEpsilon >= contadorUnitarias) {
+            mapaDepuradoSimple = eliminarEpsilon(mapaDepuradoSimple);
+            mapaDepuradoSimple = eliminarUnitarias(mapaDepuradoSimple, varNT);
+            mapaDepuradoSimple = eliminarEpsilon(mapaDepuradoSimple);
+            mapaDepuradoSimple = eliminarUnitarias(mapaDepuradoSimple, varNT);
+        } else {
+            mapaDepuradoSimple = eliminarUnitarias(mapaDepuradoSimple, varNT);
+            mapaDepuradoSimple = eliminarEpsilon(mapaDepuradoSimple);
+            mapaDepuradoSimple = eliminarUnitarias(mapaDepuradoSimple, varNT);
+            mapaDepuradoSimple = eliminarEpsilon(mapaDepuradoSimple);
+        } 
+        return mapaDepuradoSimple;
+    }
+	
+	public HashMap<String, ArrayList<String>> eliminarEpsilon(HashMap<String, ArrayList<String>> prodMap) {
+        ArrayList<String> llavesConEpsilon = new ArrayList<>();
+
+        for (String noTerminal : prodMap.keySet()) {
+            ArrayList<String> produccionActual = prodMap.get(noTerminal);
+            Iterator<String> iterador = produccionActual.iterator();
+            while (iterador.hasNext()) {
+                String cadena = iterador.next();
+                if (cadena.equals("?")) {
+                    llavesConEpsilon.add(noTerminal);
+                    iterador.remove();
+
+                }
+            }
+        }
+
+        if (llavesConEpsilon.isEmpty()) {
+            return prodMap;
+        }
+
+        for (String llave : llavesConEpsilon) {
+            for (String key : prodMap.keySet()) {
+                ArrayList<String> producciones = prodMap.get(key);
+                ArrayList<String> produccionesSinEpsilon = new ArrayList<>();
+
+                for (String produccion : producciones) {
+                    if (produccion.length() == 1 && produccion.contains(llave)) {
+                        produccion = "?";
+                        produccionesSinEpsilon.add(produccion);
+                    } else if (produccion.contains(llave)) {
+                        ArrayList<String> combinaciones = todasLasCombinaciones(produccion, llave);
+                        produccionesSinEpsilon.addAll(combinaciones);
+                    } else {
+                        produccionesSinEpsilon.add(produccion);
+                    }
+                }
+                ArrayList<String> produccionesListas = removeDuplicates(produccionesSinEpsilon);
+                prodMap.put(key, produccionesListas);
+            }
+        }
+
+        return eliminarEpsilon(prodMap);
+    }
+
+    public ArrayList<String> todasLasCombinaciones(String s, String charABorrar) {
+        ArrayList<String> resultado = new ArrayList<>();
+        generarCombinaciones(s, charABorrar, 0, "", resultado);
+        resultado.remove("");
+        return resultado;
+    }
+
+    private void generarCombinaciones(String s, String charABorrar, int indice, String combinacionActual,
+            ArrayList<String> resultado) {
+        if (indice == s.length()) {
+            // Caso base: se llegó al final de la cadena
+            resultado.add(combinacionActual);
+            return;
+        }
+
+        // Incluir el carácter actual
+        generarCombinaciones(s, charABorrar, indice + 1, combinacionActual + s.charAt(indice), resultado);
+
+        // Excluir el carácter actual si coincide con el carácter a borrar
+        if (s.substring(indice, indice + 1).equals(charABorrar)) {
+            generarCombinaciones(s, charABorrar, indice + 1, combinacionActual, resultado);
+        }
+    }
+
+    public HashMap<String, ArrayList<String>> eliminarUnitarias(HashMap<String, ArrayList<String>> prodMap,
+            ArrayList<String> varNT) {
+        HashMap<String, ArrayList<String>> prodSinUnitarias = new HashMap<>();
+        for (String key : prodMap.keySet()) {
+            ArrayList<String> producciones = prodMap.get(key);
+            ArrayList<String> produccionesSinUnitarias = new ArrayList<>();
+            for (String produccion : producciones) {
+                if (produccion.length() == 1 && varNT.contains(produccion)) {
+                    ArrayList<String> copia = prodMap.get(produccion);
+                    for (String copy : copia) {
+                        if (!varNT.contains(copy)) {
+                            produccionesSinUnitarias.add(copy);
+                        }
+                    }
+                } else {
+                    produccionesSinUnitarias.add(produccion);
+                }
+            }
+            ArrayList<String> produccionesListas = removeDuplicates(produccionesSinUnitarias);
+            prodSinUnitarias.put(key, produccionesListas);
+        }
+        return prodSinUnitarias;
+    }
+
+    public  ArrayList<String> removeDuplicates(ArrayList<String> arr) {
+        HashSet<String> uniqueSet = new HashSet<>(arr);
+        return new ArrayList<>(uniqueSet);
+    }
+
+    public HashMap<String, ArrayList<String>> eliminarRecursividad(HashMap<String, ArrayList<String>> producciones) {
+        HashMap<String, ArrayList<String>> mapaSinRecursividad = new HashMap<>();
+        HashMap<String, ArrayList<String>> mapaSemiDepurado = new HashMap<>();
+        ArrayList<String> keyRecursivas = new ArrayList<>();
+        int contadorNoRecursividad = 0;
+
+        for (String llave : producciones.keySet()) {
+            ArrayList<String> produccion = producciones.get(llave);
+            contadorNoRecursividad = 0;
+            for (String cadena : produccion) {
+                if (!cadena.contains(llave)) {
+                    contadorNoRecursividad++;
+                }
+            }
+            if (contadorNoRecursividad > 0) {
+                mapaSinRecursividad.put(llave, produccion);
+            } else {
+                keyRecursivas.add(llave);
+            }
+        }
+
+        if (keyRecursivas.isEmpty()) {
+            return mapaSinRecursividad;
+        } else {
+            for (String llave : keyRecursivas) {
+                for (String noTerminal : mapaSinRecursividad.keySet()) {
+                    ArrayList<String> produccion = producciones.get(noTerminal);
+                    ArrayList<String> produccionDepurada = new ArrayList<>();
+
+                    for (String cadena : produccion) {
+                        if (!cadena.contains(llave)) {
+                            produccionDepurada.add(cadena);
+                        }
+                    }
+                    mapaSemiDepurado.put(noTerminal, produccionDepurada);
+                }
+            }
+        }
+        return mapaSemiDepurado;
+    }
+
+    // termina depuracion y empieza chomsky
+
+    public HashMap<String, ArrayList<String>> chomskyEnDuos(HashMap<String, ArrayList<String>> producciones) {
+        
+        HashMap<String,  ArrayList<String>> mapaCompletamenteEnChusmky = new HashMap<>();
+        int contadorDeQ = 1;
+        for (String noTerminal : producciones.keySet()){
+            ArrayList<String> produccionActual = producciones.get(noTerminal);
+            ArrayList<String> nuevaProduccion = new ArrayList<>();
+
+            for (String cadena : produccionActual){
+                
+                if(cadena.length() > 2){
+                    String variableEnChumsky = produccionChumsky(cadena, contadorDeQ);
+                    nuevaProduccion.add(variableEnChumsky);
+                }else{
+                    nuevaProduccion.add(cadena);
+                }
+            }
+            mapaCompletamenteEnChusmky.put(noTerminal, nuevaProduccion);
+        }
+        // aqui se une el mapa de las Qs con el de chomsky a medias
+        for (String terminal : mapaQs.keySet()){
+            String noTerminal = mapaQs.get(terminal);
+            ArrayList<String> produccionNoTerminal = new ArrayList<>();
+            produccionNoTerminal.add(terminal); 
+            mapaCompletamenteEnChusmky.put(noTerminal, produccionNoTerminal);
+        }
+        
+        return mapaCompletamenteEnChusmky;
+    }
+    //metodo que convierte cada produccion en forma de chomsky y va creando Qs y verificando si existe
+    public String produccionChumsky(String produccion, int contadorGlobal){
+        if(produccion.charAt(1) == '<'){
+            return produccion;
+        } else{
+            // primera vez que entra
+            if (produccion.charAt(produccion.length() - 1) != '>'){
+                String llaveQ = produccion.substring(produccion.length()-2);
+                String produccionConQ;
+                if(!mapaQs.containsKey(llaveQ)){
+                    String nuevaVariable = "<Q" + contadorGlobal++ + ">";
+                    mapaQs.put(llaveQ, nuevaVariable);
+                    produccionConQ = produccion.substring(0, produccion.length() - 2) + nuevaVariable;
+                }else{
+                    produccionConQ = produccion.substring(0, produccion.length() - 2) + mapaQs.get(llaveQ);
+                }
+                return produccionChumsky(produccionConQ, contadorGlobal);
+            }//otra vez, pero ahora produccion va a tener > al final //Ya no entiendo una mondá
+             else { 
+                if(produccion.charAt(produccion.length() - 3) == 'Q'){
+
+                    String llaveQ = produccion.substring(produccion.length()-5);
+                    String produccionConQ;
+                    if(!mapaQs.containsKey(llaveQ)){
+                        String nuevaVariable = "<Q" + contadorGlobal++ + ">";
+                        mapaQs.put(llaveQ, nuevaVariable);
+                        produccionConQ = produccion.substring(0, produccion.length() - 5) + nuevaVariable;
+                    }else{
+                        produccionConQ = produccion.substring(0, produccion.length() - 5) + mapaQs.get(llaveQ);
+                    }
+                    return produccionChumsky(produccionConQ, contadorGlobal);
+                } else {
+                    String llaveQ = produccion.substring(produccion.length()-6);
+                    String produccionConQ;
+                    if(!mapaQs.containsKey(llaveQ)){
+                        String nuevaVariable = "<Q" + contadorGlobal++ + ">";
+                        mapaQs.put(llaveQ, nuevaVariable);
+                        produccionConQ = produccion.substring(0, produccion.length() - 6) + nuevaVariable;
+                    }else{
+                        produccionConQ = produccion.substring(0, produccion.length() - 6) + mapaQs.get(llaveQ);
+                    }
+                    return produccionChumsky(produccionConQ, contadorGlobal);
+                }
+            }
+        }
+    }
+
+    public HashMap<String, ArrayList<String>> reemplazarTerminales(HashMap<String, ArrayList<String>> producciones, ArrayList<String> varT ){
+        HashMap<String, String> reemplazos = new HashMap<>();
+        HashMap<String, ArrayList<String>> produccionesReemplazadas = new HashMap<>();
+        int contador = 0;
+
+        for (String terminal : varT) {
+            if(!reemplazos.containsKey(terminal)){
+                String nuevaVariable = "<X" + contador++ + ">";
+                reemplazos.put(terminal, nuevaVariable);
+            }
+        }
+
+        for (String noTerminal : producciones.keySet()) {
+            ArrayList<String> produccionActual = producciones.get(noTerminal);
+            ArrayList<String> nuevaProduccion = new ArrayList<>();
+
+            for (String cadena : produccionActual) {
+                
+                if(cadena.length() > 1){
+                    StringBuilder nuevaCadena = new StringBuilder();
+
+                    for (int i = 0; i < cadena.length(); i++) {
+                        String simbolo1 = String.valueOf(cadena.charAt(i));
+                        if(simbolo1.equals("<")){
+                            if(cadena.charAt(i+3) == '>'){
+                                nuevaCadena.append(cadena.substring(i, i+3));
+                                i=i+3;
+                            } else {
+                                nuevaCadena.append(cadena.substring(i, i+4));
+                                i=i+4;
+                            }
+                            String simbolo2 = String.valueOf(cadena.charAt(i));
+                            if (reemplazos.containsKey(simbolo2)) {
+                                nuevaCadena.append(reemplazos.get(simbolo2));
+                            } else {
+                                nuevaCadena.append(simbolo2);
+                            }
+                        }else{
+                            if (reemplazos.containsKey(simbolo1)) {
+                                nuevaCadena.append(reemplazos.get(simbolo1));
+                            } else {
+                                nuevaCadena.append(simbolo1);
+                            }
+                        }
+                    }
+                    nuevaProduccion.add(nuevaCadena.toString());
+                }else{
+                    nuevaProduccion.add(cadena);
+                }
+            }
+            produccionesReemplazadas.put(noTerminal, nuevaProduccion);
+        }
+
+        for (String terminal : reemplazos.keySet()) {
+            String noTerminal = reemplazos.get(terminal);
+            ArrayList<String> produccionNoTerminal = new ArrayList<>();
+            produccionNoTerminal.add(terminal); 
+            produccionesReemplazadas.put(noTerminal, produccionNoTerminal);
+        }
+
+        return produccionesReemplazadas;
     }
 
     public HashMap<String, ArrayList<String>> getMapaInicial() {
@@ -361,5 +736,21 @@ public class Modelo {
 
     public void setMapaInicial( HashMap<String, ArrayList<String>> mapainicial) {
         this.mapainicial = mapainicial;
+    }
+
+    public HashMap<String, ArrayList<String>> getMapaDepurado() {
+        return mapaDepurado;
+    }
+
+    public void setMapaDepurado( HashMap<String, ArrayList<String>> mapaDepurado) {
+        this.mapaDepurado = mapaDepurado;
+    }
+
+    public HashMap<String, ArrayList<String>> getMapaChomsky() {
+        return mapaChomsky;
+    }
+
+    public void setMapaChomsky( HashMap<String, ArrayList<String>> mapaChomsky) {
+        this.mapaChomsky = mapaChomsky;
     }
 }
